@@ -1,23 +1,36 @@
-import os
+"""
+Predict a sample of ImageNet images using AlexNet and print the results
 
-import dotenv
+Predict a sample of ImageNet images using AlexNet and print the true & resulting
+predicted class and certainity. Sample of images from the training set, and
+validation set are used. Also save those sample images
+"""
+
+import os
+import yaml
+
 import torch
-import torch.nn as nn
+import torch.nn
 import torchvision
 
 OUTPUT_PATH = "preliminary/sample"
+# location of the config yaml file
+CONFIG_PATH = "config.yaml"
+# name of the variable in the config file which contains the path
+IMAGENET_CONFIG_NAME = "imagenet_path"
+
 
 def main():
-
     if not os.path.isdir(OUTPUT_PATH):
         os.mkdir(OUTPUT_PATH)
 
-    dotenv.load_dotenv(".env")
+    with open(CONFIG_PATH, "r", encoding="utf-8") as file:
+        config = yaml.safe_load(file)
+        imagenet_path = config[IMAGENET_CONFIG_NAME]
 
-    imagenet = torchvision.datasets.ImageNet(os.getenv("IMAGENET_PATH"))
+    imagenet = torchvision.datasets.ImageNet(imagenet_path)
     classes = imagenet.classes
-    softmax = nn.Softmax(dim=1)
-
+    softmax = torch.nn.Softmax(dim=1)
 
     model = torchvision.models.alexnet(weights="DEFAULT")
     model.eval()
@@ -44,9 +57,9 @@ def main():
 
         image_i.save(os.path.join(OUTPUT_PATH, f"predict_training_{i}.jpg"))
 
-    imagenet = torchvision.datasets.ImageNet(os.getenv("IMAGENET_PATH"),
-                                             split="val")
+    imagenet = torchvision.datasets.ImageNet(imagenet_path, split="val")
     data = [1000, 46719, 3000, 10214, 18540]
+
     print("=====")
     print("VALIDATION SET")
     print("=====")
@@ -63,7 +76,8 @@ def main():
 
         print("=====")
 
-        image_i.save(os.path.join(OUTPUT_PATH,f"predict_val{i}.jpg"))
+        image_i.save(os.path.join(OUTPUT_PATH, f"predict_val{i}.jpg"))
+
 
 if __name__ == "__main__":
     main()

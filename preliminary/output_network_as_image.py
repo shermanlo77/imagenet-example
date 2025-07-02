@@ -1,3 +1,7 @@
+"""
+Print the image after every layer in AlexNet
+"""
+
 import os
 
 import PIL
@@ -5,8 +9,8 @@ import torchvision
 
 OUTPUT_PATH = "preliminary/network"
 
-def main():
 
+def main():
     if not os.path.isdir(OUTPUT_PATH):
         os.mkdir(OUTPUT_PATH)
 
@@ -17,7 +21,6 @@ def main():
     transform = torchvision.models.AlexNet_Weights.DEFAULT.transforms()
 
     with PIL.Image.open(image_path) as image:
-
         # STAGE 0
         image = transform(image)
         image = image[None, :]
@@ -34,9 +37,10 @@ def main():
 
 
 def output_tensor(x, i, j):
-    for k, slice in enumerate(x):
-        slice_pil = torchvision.transforms.functional.to_pil_image(slice)
+    for k, image_i in enumerate(x):
+        slice_pil = torchvision.transforms.functional.to_pil_image(image_i)
         slice_pil.save(os.path.join(OUTPUT_PATH, f"{i}_{j}_{k}.png"))
+
 
 if __name__ == "__main__":
     main()
