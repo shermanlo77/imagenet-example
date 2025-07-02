@@ -70,16 +70,20 @@ WORLD_SIZE = int(os.environ["WORLD_SIZE"])
 
 
 class DummyLogger:
-    """A Logger which does nothing, this is used so only one worker does logging
+    """A Logger which does nothing
+
+    A Logger which does nothing, this is used so only one worker does logging
     """
+
     def __init__(self):
         pass
+
     def info(self, *args, **kwargs):
         pass
 
 
 # only the master process does logging
-if int(os.environ["RANK"]) ==  MASTER_RANK:
+if int(os.environ["RANK"]) == MASTER_RANK:
     LOGGER = logging.getLogger(__name__)
 else:
     LOGGER = DummyLogger()
@@ -104,32 +108,30 @@ def get_model(args):
     match args.model:
         case "alexnet":
             model = torchvision.models.alexnet()
-            transform = (
-                torchvision.models.AlexNet_Weights.DEFAULT.transforms())
+            transform = torchvision.models.AlexNet_Weights.DEFAULT.transforms()
         case "convnext":
             model = torchvision.models.convnext_base()
             transform = (
-                torchvision.models.ConvNeXt_Base_Weights.DEFAULT.transforms())
+                torchvision.models.ConvNeXt_Base_Weights.DEFAULT.transforms()
+            )
         case _:
             raise ValueError("Unrecognised model")
     return model, transform
 
 
 def main(args):
-
     # load configs; pytorch parameters for each model and location of imagenet
     with open(CONFIG_PATH, "r", encoding="utf-8") as file:
         config = yaml.safe_load(file)
         imagenet_path = config[IMAGENET_CONFIG_NAME]
         config = config[args.model]
 
-
     # init ddp
     device = torch.device(f"cuda:{LOCAL_RANK}")
     torch.cuda.set_device(device)
-    torch.distributed.init_process_group(backend="nccl",
-                                         world_size=WORLD_SIZE,
-                                         rank=RANK)
+    torch.distributed.init_process_group(
+        backend="nccl", world_size=WORLD_SIZE, rank=RANK
+    )
     torch.distributed.barrier()
 
     # load model
@@ -138,23 +140,25 @@ def main(args):
     model = nn.parallel.DistributedDataParallel(model, device_ids=[device])
 
     # load imagenet
-    dataset = torchvision.datasets.ImageNet(imagenet_path,
-                                            transform=transform)
-    dataset_test = torchvision.datasets.ImageNet(imagenet_path,
-                                                 split="val",
-                                                 transform=transform)
+    dataset = torchvision.datasets.ImageNet(imagenet_path, transform=transform)
+    dataset_test = torchvision.datasets.ImageNet(
+        imagenet_path, split="val", transform=transform
+    )
 
     # for testing, reduce size of dataset
     if args.test:
         dataset = torch.utils.data.Subset(
-            dataset, range(config["batch_size"] * WORLD_SIZE))
+            dataset, range(config["batch_size"] * WORLD_SIZE)
+        )
         dataset_test = torch.utils.data.Subset(
-            dataset_test, range(config["batch_size"] * WORLD_SIZE))
+            dataset_test, range(config["batch_size"] * WORLD_SIZE)
+        )
 
     # set sampler
     train_sampler = torch.utils.data.distributed.DistributedSampler(dataset)
     test_sampler = torch.utils.data.distributed.DistributedSampler(
-        dataset_test, shuffle=False)
+        dataset_test, shuffle=False
+    )
 
     # set data loaders
     data_loader = torch.utils.data.DataLoader(
@@ -162,14 +166,14 @@ def main(args):
         batch_size=config["batch_size"],
         sampler=train_sampler,
         num_workers=args.workers,
-        pin_memory=True
+        pin_memory=True,
     )
     data_loader_test = torch.utils.data.DataLoader(
         dataset_test,
         batch_size=config["batch_size"],
         sampler=test_sampler,
         num_workers=args.workers,
-        pin_memory=True
+        pin_memory=True,
     )
 
     # set optimizer
@@ -177,10 +181,11 @@ def main(args):
         model.parameters(),
         lr=config["lr"],
         momentum=config["momentum"],
-        weight_decay=config["weight_decay"]
+        weight_decay=config["weight_decay"],
     )
     lr_scheduler = torch.optim.lr_scheduler.StepLR(
-        optimizer, step_size=config["lr_step_size"], gamma=config["lr_gamma"])
+        optimizer, step_size=config["lr_step_size"], gamma=config["lr_gamma"]
+    )
     criterion = nn.CrossEntropyLoss()
 
     # start training
@@ -190,7 +195,6 @@ def main(args):
     model.train()
 
     for epoch in range(config["epochs"]):
-
         epoch_start_time = time.perf_counter()
 
         train_sampler.set_epoch(epoch)
@@ -209,14 +213,16 @@ def main(args):
 
         lr_scheduler.step()
 
-        torch.distributed.reduce(total_loss, MASTER_RANK,
-                                 torch.distributed.ReduceOp.SUM)
+        torch.distributed.reduce(
+            total_loss, MASTER_RANK, torch.distributed.ReduceOp.SUM
+        )
         total_loss = total_loss.cpu().detach().numpy()[0]
 
         total_time = time.perf_counter() - epoch_start_time
 
-        LOGGER.info("Epoch %i: loss %f, time %f s",
-                    epoch, total_loss, total_time)
+        LOGGER.info(
+            "Epoch %i: loss %f, time %f s", epoch, total_loss, total_time
+        )
 
     LOGGER.info("Training end")
     # report training error and benchmark
@@ -247,12 +253,16 @@ def get_args_parser():
     )
     parser.add_argument("model", help="name of model to run")
     parser.add_argument(
-        "--workers", default=0, type=int, metavar="N",
-        help="number of data loading workers for each process"
+        "--workers",
+        default=0,
+        type=int,
+        metavar="N",
+        help="number of data loading workers for each process",
     )
     parser.add_argument(
-        "--test", action="store_true",
-        help="indicate to do a test run, only uses one batch of data"
+        "--test",
+        action="store_true",
+        help="indicate to do a test run, only uses one batch of data",
     )
     return parser
 
