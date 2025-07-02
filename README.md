@@ -69,7 +69,7 @@ where the positional arguments and options are:
 ```text
 --nnodes NNODES       Number of nodes
 --nproc-per-node NPROC_PER_NODE
-                      Number of workers per node; recommend: gpu
---workers N           Number of data loading workers per process; recommend: 8
+                      Number of processes per node; recommend: gpu
+--workers N           Number of data loading workers per process
 --test                Indicate to do a test run, only uses one batch of data
 ```
